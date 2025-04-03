@@ -81,7 +81,7 @@ def main():
     args, unknown = parser.parse_known_args()
     kwargs = parse_model_args(unknown)
 
-    charset_test = string.digits + string.ascii_lowercase
+    charset_test = string.digits #+ string.ascii_lowercase
     if args.cased:
         charset_test += string.ascii_uppercase
     if args.punctuation:
@@ -104,11 +104,14 @@ def main():
         rotation=args.rotation,
     )
 
-    test_set = SceneTextDataModule.TEST_BENCHMARK_SUB + SceneTextDataModule.TEST_BENCHMARK
-    if args.new:
-        test_set += SceneTextDataModule.TEST_NEW
-    test_set = sorted(set(test_set))
-
+    #test_set = SceneTextDataModule.TEST_BENCHMARK_SUB + SceneTextDataModule.TEST_BENCHMARK
+    #print(test_set)
+    #if args.new:
+    #    test_set += SceneTextDataModule.TEST_NEW
+    #test_set = sorted(set(test_set))
+    #print(test_set)
+    test_set = SceneTextDataModule.TEST_BENCHMARK_SUB
+    test_set = {test_set}
     results = {}
     max_width = max(map(len, test_set))
     for name, dataloader in datamodule.test_dataloaders(test_set).items():
@@ -130,19 +133,7 @@ def main():
         mean_label_length = label_length / total
         results[name] = Result(name, total, accuracy, mean_ned, mean_conf, mean_label_length)
 
-    result_groups = {
-        'Benchmark (Subset)': SceneTextDataModule.TEST_BENCHMARK_SUB,
-        'Benchmark': SceneTextDataModule.TEST_BENCHMARK,
-    }
-    if args.new:
-        result_groups.update({'New': SceneTextDataModule.TEST_NEW})
-    with open(args.checkpoint + '.log.txt', 'w') as f:
-        for out in [f, sys.stdout]:
-            for group, subset in result_groups.items():
-                print(f'{group} set:', file=out)
-                print_results_table([results[s] for s in subset], out)
-                print('\n', file=out)
-
+    print(results["soccernet"])
 
 if __name__ == '__main__':
     main()

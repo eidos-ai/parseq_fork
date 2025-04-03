@@ -21,10 +21,11 @@ from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig, open_dict
 
 import torch
+import mlflow
 
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint, StochasticWeightAveraging
-from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_lightning.loggers import TensorBoardLogger, MLFlowLogger
 from pytorch_lightning.strategies import DDPStrategy
 from pytorch_lightning.utilities.model_summary import summarize
 
@@ -62,13 +63,7 @@ def main(config: DictConfig):
         if gpu:
             # Use mixed-precision training
             config.trainer.precision = 'bf16-mixed' if torch.get_autocast_gpu_dtype() is torch.bfloat16 else '16-mixed'
-        if gpu and devices > 1:
-            # Use DDP with optimizations
-            trainer_strategy = DDPStrategy(find_unused_parameters=False, gradient_as_bucket_view=True)
-            # Scale steps-based config
-            config.trainer.val_check_interval //= devices
-            if config.trainer.get('max_steps', -1) > 0:
-                config.trainer.max_steps //= devices
+        
 
     # Special handling for PARseq
     if config.model.get('perm_mirrored', False):
@@ -98,14 +93,35 @@ def main(config: DictConfig):
         if config.ckpt_path is None
         else str(Path(config.ckpt_path).parents[1].absolute())
     )
+    
+    # Set up MLflow logging
+    mlflow_logger = MLFlowLogger(
+        experiment_name="parseq",
+        tracking_uri="http://trackme.eidos.ai/",  # This will create a local mlruns directory
+        # You can also specify a remote tracking server if needed
+        # tracking_uri="http://your-mlflow-server:5000",
+    )
+    
+    # Log hyperparameters
+    mlflow_logger.log_hyperparams({
+        "model": config.model._target_,
+        "batch_size": config.data.batch_size,
+        "learning_rate": config.model.lr,
+        "warmup_pct": config.model.warmup_pct,
+        "weight_decay": config.model.weight_decay,
+    })
+    
     trainer: Trainer = hydra.utils.instantiate(
         config.trainer,
-        logger=TensorBoardLogger(cwd, '', '.'),
+        logger=[TensorBoardLogger(cwd, '', '.'), mlflow_logger],  # Keep both TensorBoard and MLflow loggers
         strategy=trainer_strategy,
-        enable_model_summary=False,
+        enable_model_summary=True,#False,
         callbacks=[checkpoint, swa],
     )
-    trainer.fit(model, datamodule=datamodule, ckpt_path=config.ckpt_path)
+    
+    # Start MLflow run
+    with mlflow.start_run():
+        trainer.fit(model, datamodule=datamodule, ckpt_path=config.ckpt_path)
 
 
 if __name__ == '__main__':
