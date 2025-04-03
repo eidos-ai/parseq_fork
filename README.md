@@ -1,3 +1,5 @@
+## This is a fork from (https://github.com/baudm/parseq/)
+
 ## News
 - **2024-02-22**: Updated for PyTorch 2.0 and Lightning 2.0
 - **2024-01-16**: Featured in the [NVIDIA Developer Blog](https://developer.nvidia.com/blog/robust-scene-text-detection-and-recognition-introduction/)
