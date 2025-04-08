@@ -81,7 +81,7 @@ def main():
     args, unknown = parser.parse_known_args()
     kwargs = parse_model_args(unknown)
 
-    charset_test = string.digits + string.ascii_lowercase
+    charset_test = string.digits #+ string.ascii_lowercase
     if args.cased:
         charset_test += string.ascii_uppercase
     if args.punctuation:
@@ -104,11 +104,14 @@ def main():
         rotation=args.rotation,
     )
 
-    test_set = SceneTextDataModule.TEST_BENCHMARK_SUB + SceneTextDataModule.TEST_BENCHMARK
-    if args.new:
-        test_set += SceneTextDataModule.TEST_NEW
-    test_set = sorted(set(test_set))
-
+    #test_set = SceneTextDataModule.TEST_BENCHMARK_SUB + SceneTextDataModule.TEST_BENCHMARK
+    #print(test_set)
+    #if args.new:
+    #    test_set += SceneTextDataModule.TEST_NEW
+    #test_set = sorted(set(test_set))
+    #print(test_set)
+    test_set = SceneTextDataModule.TEST_BENCHMARK_SUB
+    test_set = {test_set}
     results = {}
     max_width = max(map(len, test_set))
     for name, dataloader in datamodule.test_dataloaders(test_set).items():
@@ -119,6 +122,22 @@ def main():
         label_length = 0
         for imgs, labels in tqdm(iter(dataloader), desc=f'{name:>{max_width}}'):
             res = model.test_step((imgs.to(model.device), labels), -1)['output']
+            
+            import torchvision.transforms.functional as TF
+            import os
+            from PIL import Image
+
+            save_dir = f"debug_images/{name}"
+            os.makedirs(save_dir, exist_ok=True)
+
+            # Save the first images of the batch to see what is been passed to the model
+            for i in range(min(5, imgs.size(0))):  # Save up to 5 per batch
+                img_tensor = imgs[i].cpu()
+                img_pil = TF.to_pil_image(img_tensor)
+                img_pil.save(os.path.join(save_dir, f"{total+i:06}.png"))
+
+            
+            #print(imgs.shape)
             total += res.num_samples
             correct += res.correct
             ned += res.ned
@@ -130,19 +149,7 @@ def main():
         mean_label_length = label_length / total
         results[name] = Result(name, total, accuracy, mean_ned, mean_conf, mean_label_length)
 
-    result_groups = {
-        'Benchmark (Subset)': SceneTextDataModule.TEST_BENCHMARK_SUB,
-        'Benchmark': SceneTextDataModule.TEST_BENCHMARK,
-    }
-    if args.new:
-        result_groups.update({'New': SceneTextDataModule.TEST_NEW})
-    with open(args.checkpoint + '.log.txt', 'w') as f:
-        for out in [f, sys.stdout]:
-            for group, subset in result_groups.items():
-                print(f'{group} set:', file=out)
-                print_results_table([results[s] for s in subset], out)
-                print('\n', file=out)
-
+    print(results["soccernet"])
 
 if __name__ == '__main__':
     main()
