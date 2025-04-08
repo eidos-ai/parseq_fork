@@ -122,6 +122,22 @@ def main():
         label_length = 0
         for imgs, labels in tqdm(iter(dataloader), desc=f'{name:>{max_width}}'):
             res = model.test_step((imgs.to(model.device), labels), -1)['output']
+            
+            import torchvision.transforms.functional as TF
+            import os
+            from PIL import Image
+
+            save_dir = f"debug_images/{name}"
+            os.makedirs(save_dir, exist_ok=True)
+
+            # Save the first images of the batch to see what is been passed to the model
+            for i in range(min(5, imgs.size(0))):  # Save up to 5 per batch
+                img_tensor = imgs[i].cpu()
+                img_pil = TF.to_pil_image(img_tensor)
+                img_pil.save(os.path.join(save_dir, f"{total+i:06}.png"))
+
+            
+            #print(imgs.shape)
             total += res.num_samples
             correct += res.correct
             ned += res.ned
